@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"os/exec"
+)
 
 type Renderer struct {
 	game *Game
@@ -11,6 +15,7 @@ func NewRenderer(game *Game) *Renderer {
 }
 
 func (r *Renderer) Render() {
+	ClearScreenWindows()
 	h := r.game.gridHeight
 	w := r.game.gridWidth
 
@@ -81,4 +86,10 @@ func drawColumn(grid [][]rune, x int, ch rune) {
 	for i := 1; i < len(grid); i++ { // i parte da 1 perché _ è posizionato nella parte inferiore della riga.
 		grid[i][x] = ch
 	}
+}
+
+func ClearScreenWindows() {
+	cmd := exec.Command("cmd", "/c", "cls") //Windows example, its tested
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }

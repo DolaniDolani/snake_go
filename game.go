@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 type Game struct {
@@ -11,17 +12,6 @@ type Game struct {
 	apple      Apple
 	lost       bool
 	lastMove   rune
-}
-
-func readInput() rune {
-	var input rune
-	fmt.Scanf("%c ", &input)
-	switch input {
-	case 'w', 'a', 's', 'd':
-		return input
-	default:
-		return 0
-	}
 }
 
 func (game *Game) MoveSnake(input rune) {
@@ -71,6 +61,10 @@ func (game *Game) EvaluateMove(input rune) MoveResult {
 		return MoveEat
 	}
 	//se testa su corpo -> perdiamo
+	//se ci si prova a muovere indietro -> non ci si muove
+	if game.wouldMoveBack(nextHead) {
+		return MoveInvalid
+	}
 	//se testa su muro -> perdiamo
 	if game.wouldClashWithBody(nextHead) || game.wouldClashWithBorder(nextHead) {
 		return MoveDeath
@@ -91,6 +85,8 @@ func (game *Game) ActMove(input rune, moveResult MoveResult) {
 	case MoveOk:
 		game.MoveSnake(input)
 		game.lastMove = input
+	case MoveInvalid:
+
 	default:
 		fmt.Println("INVALID MOVE STATE")
 	}
@@ -113,6 +109,14 @@ func (game *Game) wouldClashWithBody(nextPos Pos) bool {
 		}
 	}
 	return false
+}
+
+func (game *Game) wouldMoveBack(nextPos Pos) bool {
+	if nextPos.x == game.snake.body[1].x && nextPos.y == game.snake.body[1].y {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (game *Game) wouldEatApple(nextPos Pos) bool {
@@ -157,24 +161,59 @@ func newGame() Game {
 		apple: Apple{
 			Pos{x: 9, y: 7},
 		},
-		lost: false,
+		lost:     false,
+		lastMove: 'd',
 	}
 	return game
 }
 
 func startGame() {
 	game := newGame()
-	loop(&game)
+	timedLoop(&game)
 }
 
 func loop(game *Game) {
 	renderer := NewRenderer(game)
 	renderer.Render()
+
 	for !game.lost {
-		input := readInput()
+		//input := ReadInput() //terminale normale
+		input := ReadRawInputWindows()
 		evaluatedMove := game.EvaluateMove(input)
 		game.ActMove(input, evaluatedMove)
 		renderer.Render()
+	}
+	fmt.Println("Grazie per aver giocato!")
+}
+
+func timedLoop(game *Game) {
+	renderer := NewRenderer(game)
+	renderer.Render()
+
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	inputChan := make(chan rune, 10)
+	go func() {
+		for {
+			input := ReadRawInputWindows()
+			inputChan <- input
+		}
+	}()
+	var pendingInput rune = game.lastMove
+	for !game.lost {
+
+		select {
+		case input := <-inputChan:
+			pendingInput = input
+		case <-ticker.C:
+			move := pendingInput
+			evaluatedMove := game.EvaluateMove(move)
+			game.ActMove(move, evaluatedMove)
+			renderer.Render()
+			game.lastMove = move
+		}
+
 	}
 	fmt.Println("Grazie per aver giocato!")
 }
